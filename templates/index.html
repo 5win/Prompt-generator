@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}프롬프트 생성기{% endblock %}
+
+{% block content %}
+<div class="text-center mb-5">
+    <h1 class="display-4 mb-4">
+        <i class="fas fa-wand-magic-sparkles" style="color: var(--primary-color);"></i>
+        <br>
+        프롬프트 생성기
+    </h1>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8 col-md-10">
+        <div class="card hover-card mb-4" style="min-height: 120px;">
+            <div class="card-body d-flex align-items-center">
+                <div class="me-4" style="font-size: 3rem; color: var(--primary-color);">
+                    <i class="fas fa-file-text"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h3 class="mb-2">템플릿 관리</h3>
+                    <p class="text-muted mb-0">재사용 가능한 프롬프트 템플릿을 만들고 관리하세요</p>
+                </div>
+                <div>
+                    <a href="/templates" class="btn btn-primary">
+                        관리하기
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card hover-card mb-4" style="min-height: 120px;">
+            <div class="card-body d-flex align-items-center">
+                <div class="me-4" style="font-size: 3rem; color: var(--success-color);">
+                    <i class="fas fa-magic"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h3 class="mb-2">프롬프트 생성</h3>
+                    <p class="text-muted mb-0">템플릿을 선택하고 맞춤 프롬프트를 생성하세요</p>
+                </div>
+                <div>
+                    <a href="/prompts/create" class="btn btn-success">
+                        생성하기
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card hover-card mb-4" style="min-height: 120px;">
+            <div class="card-body d-flex align-items-center">
+                <div class="me-4" style="font-size: 3rem; color: var(--warning-color);">
+                    <i class="fas fa-history"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h3 class="mb-2">생성 내역</h3>
+                    <p class="text-muted mb-0">만든 프롬프트들을 확인하고 관리하세요</p>
+                </div>
+                <div>
+                    <a href="/prompts" class="btn btn-warning">
+                        보기
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

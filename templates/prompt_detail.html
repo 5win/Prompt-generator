@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}{{ prompt.title }} - 프롬프트 템플릿 생성 서비스{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-0">
+                        <i class="fas fa-file-text me-2"></i>{{ prompt.title }}
+                    </h4>
+                    <small>
+                        <i class="fas fa-calendar-alt me-1"></i>
+                        {{ prompt.created_at.strftime('%Y년 %m월 %d일 %H:%M') }}
+                    </small>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-light btn-sm" onclick="copyToClipboard()" title="클립보드에 복사">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                    {% if not prompt.gemini_response %}
+                    <button class="btn btn-warning btn-sm" onclick="submitToGemini({{ prompt.id }})" title="Gemini로 제출">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                    {% elif prompt.gemini_response.status == 'completed' %}
+                    <a href="/prompts/{{ prompt.id }}/gemini" class="btn btn-info btn-sm" title="AI 응답 보기">
+                        <i class="fas fa-robot"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h6 class="text-muted mb-2">
+                        <i class="fas fa-clipboard me-1"></i>생성된 프롬프트
+                    </h6>
+                    <div class="position-relative">
+                        <div id="promptContent" class="prompt-content">{{ prompt.generated_content }}</div>
+                        <button class="btn btn-outline-secondary btn-sm position-absolute" 
+                                style="top: 10px; right: 10px;" 
+                                onclick="copyToClipboard()" 
+                                title="복사">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Gemini 상태 표시 -->
+                {% if prompt.gemini_response %}
+                <div class="alert {% if prompt.gemini_response.status == 'completed' %}alert-success{% elif prompt.gemini_response.status == 'pending' %}alert-warning{% else %}alert-danger{% endif %}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="fas {% if prompt.gemini_response.status == 'completed' %}fa-check-circle{% elif prompt.gemini_response.status == 'pending' %}fa-clock{% else %}fa-exclamation-triangle{% endif %} me-2"></i>
+                            {% if prompt.gemini_response.status == 'completed' %}
+                                Gemini AI 응답이 완료되었습니다
+                            {% elif prompt.gemini_response.status == 'pending' %}
+                                Gemini AI 처리 중입니다...
+                            {% else %}
+                                Gemini AI 처리 중 오류가 발생했습니다
+                            {% endif %}
+                        </div>
+                        {% if prompt.gemini_response.status == 'completed' %}
+                        <a href="/prompts/{{ prompt.id }}/gemini" class="btn btn-success btn-sm">
+                            <i class="fas fa-eye me-1"></i>AI 응답 보기
+                        </a>
+                        {% elif prompt.gemini_response.status == 'pending' %}
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">처리 중...</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 입력된 내용들 표시 (옵션) -->
+                {% if prompt.contents %}
+                <div class="mt-4">
+                    <h6 class="text-muted mb-3">
+                        <i class="fas fa-edit me-1"></i>입력된 내용
+                    </h6>
+                    <div class="accordion" id="contentAccordion">
+                        {% for content in prompt.contents %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="heading{{ loop.index }}">
+                                <button class="accordion-button collapsed" type="button" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#collapse{{ loop.index }}">
+                                    {{ '#' * content.section.level }} {{ content.section.title }}
+                                </button>
+                            </h2>
+                            <div id="collapse{{ loop.index }}" 
+                                 class="accordion-collapse collapse" 
+                                 data-bs-parent="#contentAccordion">
+                                <div class="accordion-body">
+                                    <pre class="mb-0">{{ content.content or '(내용 없음)' }}</pre>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-transparent">
+                <div class="d-flex justify-content-between">
+                    <a href="/prompts" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>목록으로
+                    </a>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="copyToClipboard()">
+                            <i class="fas fa-copy me-2"></i>복사하기
+                        </button>
+                        {% if not prompt.gemini_response %}
+                        <button class="btn btn-warning" onclick="submitToGemini({{ prompt.id }})">
+                            <i class="fas fa-paper-plane me-2"></i>Gemini로 제출
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 복사 완료 토스트 -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="copyToast" class="toast" role="alert">
+        <div class="toast-header">
+            <i class="fas fa-check-circle text-success me-2"></i>
+            <strong class="me-auto">복사 완료</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body">
+            프롬프트가 클립보드에 복사되었습니다!
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function copyToClipboard() {
+    const content = document.getElementById('promptContent').textContent;
+    
+    try {
+        await navigator.clipboard.writeText(content);
+        
+        // 토스트 표시
+        const toast = new bootstrap.Toast(document.getElementById('copyToast'));
+        toast.show();
+    } catch (err) {
+        // 폴백: 텍스트 선택
+        const range = document.createRange();
+        range.selectNode(document.getElementById('promptContent'));
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        
+        try {
+            document.execCommand('copy');
+            const toast = new bootstrap.Toast(document.getElementById('copyToast'));
+            toast.show();
+        } catch (err) {
+            alert('복사에 실패했습니다. 수동으로 복사해주세요.');
+        }
+        
+        window.getSelection().removeAllRanges();
+    }
+}
+
+async function submitToGemini(promptId) {
+    try {
+        const response = await fetch(`/api/prompts/${promptId}/gemini`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            alert('Gemini API 요청이 시작되었습니다. 잠시 후 페이지를 새로고침해주세요.');
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
+        } else {
+            const error = await response.json();
+            alert('Gemini API 요청에 실패했습니다: ' + error.detail);
+        }
+    } catch (error) {
+        alert('오류가 발생했습니다: ' + error.message);
+    }
+}
+
+// Gemini 응답 대기 중일 때 자동 새로고침
+{% if prompt.gemini_response and prompt.gemini_response.status == 'pending' %}
+setTimeout(() => {
+    location.reload();
+}, 5000);
+{% endif %}
+</script>
+{% endblock %} 

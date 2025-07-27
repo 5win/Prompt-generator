@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}생성 내역 - 프롬프트 생성기{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+        <i class="fas fa-history text-info me-2"></i>생성 내역
+    </h2>
+    <a href="/prompts/create" class="btn btn-success">
+        <i class="fas fa-plus me-2"></i>생성하기
+    </a>
+</div>
+
+{% if prompts %}
+<div class="row">
+    {% for prompt in prompts %}
+    <div class="col-lg-4 col-md-6 mb-4">
+        <div class="card h-100 shadow-sm hover-card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-file-text text-success me-2"></i>{{ prompt.title }}
+                </h5>
+                <div class="card-subtitle mb-2 text-muted">
+                    <small>
+                        <i class="fas fa-calendar-alt me-1"></i>
+                        {{ prompt.created_at.strftime('%Y년 %m월 %d일 %H:%M') }}
+                    </small>
+                </div>
+                
+                <!-- Gemini 상태 표시 -->
+                <div class="mb-3">
+                    {% if prompt.has_gemini_response %}
+                        {% if prompt.gemini_status == 'completed' %}
+                        <span class="badge bg-success">
+                            <i class="fas fa-check-circle me-1"></i>Gemini 응답 완료
+                        </span>
+                        {% elif prompt.gemini_status == 'pending' %}
+                        <span class="badge bg-warning">
+                            <i class="fas fa-clock me-1"></i>Gemini 처리 중
+                        </span>
+                        {% else %}
+                        <span class="badge bg-danger">
+                            <i class="fas fa-exclamation-triangle me-1"></i>Gemini 오류
+                        </span>
+                        {% endif %}
+                    {% else %}
+                        <span class="badge bg-secondary">
+                            <i class="fas fa-robot me-1"></i>Gemini 미제출
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card-footer bg-transparent">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="btn-group" role="group">
+                        <a href="/prompts/{{ prompt.id }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-eye me-1"></i>보기
+                        </a>
+                        {% if prompt.has_gemini_response and prompt.gemini_status == 'completed' %}
+                        <a href="/prompts/{{ prompt.id }}/gemini" class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-robot me-1"></i>AI 응답
+                        </a>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex align-items-center gap-2">
+                        <!-- Gemini 제출 버튼 -->
+                        {% if not prompt.has_gemini_response %}
+                        <button class="btn btn-warning btn-sm" onclick="submitToGemini({{ prompt.id }})">
+                            <i class="fas fa-paper-plane me-1"></i>Gemini로 제출
+                        </button>
+                        {% elif prompt.gemini_status == 'pending' %}
+                        <div class="spinner-border spinner-border-sm text-warning" role="status">
+                            <span class="visually-hidden">처리 중...</span>
+                        </div>
+                        {% elif prompt.gemini_status == 'completed' %}
+                        <i class="fas fa-check-circle text-success fa-lg"></i>
+                        {% else %}
+                        <button class="btn btn-outline-warning btn-sm" onclick="submitToGemini({{ prompt.id }})">
+                            <i class="fas fa-redo me-1"></i>재시도
+                        </button>
+                        {% endif %}
+                        
+                        <!-- 삭제 버튼 -->
+                        <button class="btn btn-outline-danger btn-delete" onclick="deletePrompt({{ prompt.id }})" title="삭제">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 페이지네이션은 나중에 추가 -->
+{% else %}
+<div class="text-center py-5">
+    <div class="mb-4">
+        <i class="fas fa-clipboard-list fa-5x text-muted"></i>
+    </div>
+    <h4 class="text-muted mb-3">아직 생성된 프롬프트가 없습니다</h4>
+    <p class="text-muted mb-4">첫 번째 프롬프트를 만들어보세요!</p>
+    <a href="/prompts/create" class="btn btn-success btn-lg">
+        <i class="fas fa-magic me-2"></i>첫 프롬프트 만들기
+    </a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function submitToGemini(promptId) {
+    try {
+        const response = await fetch(`/api/prompts/${promptId}/gemini`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            alert('Gemini API 요청이 시작되었습니다. 잠시 후 페이지를 새로고침해주세요.');
+            // 3초 후 자동 새로고침
+            setTimeout(() => {
+                location.reload();
+            }, 3000);
+        } else {
+            const error = await response.json();
+            alert('Gemini API 요청에 실패했습니다: ' + error.detail);
+        }
+    } catch (error) {
+        alert('오류가 발생했습니다: ' + error.message);
+    }
+}
+
+// 프롬프트 삭제 함수
+async function deletePrompt(promptId) {
+    if (!confirm('이 프롬프트를 삭제하시겠습니까?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/prompts/${promptId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            showToast('프롬프트가 삭제되었습니다.', 'success');
+            location.reload(); // 페이지 새로고침
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || '삭제에 실패했습니다.');
+        }
+    } catch (error) {
+        alert('오류가 발생했습니다: ' + error.message);
+    }
+}
+
+// 5초마다 자동 새로고침 (pending 상태 확인용)
+let autoRefresh = setInterval(() => {
+    const pendingElements = document.querySelectorAll('.badge.bg-warning');
+    if (pendingElements.length > 0) {
+        location.reload();
+    } else {
+        clearInterval(autoRefresh);
+    }
+}, 5000);
+
+// 10분 후 자동 새로고침 중지
+setTimeout(() => {
+    clearInterval(autoRefresh);
+}, 600000);
+</script>
+{% endblock %} 

@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}프롬프트 생성 - 프롬프트 템플릿 생성 서비스{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-magic me-2"></i>프롬프트 생성: {{ template.title }}
+                </h4>
+            </div>
+            <div class="card-body">
+                <form id="promptForm">
+                    <div class="mb-4">
+                        <label for="promptTitle" class="form-label fw-bold">
+                            <i class="fas fa-heading me-1"></i>프롬프트 제목 *
+                        </label>
+                        <input type="text" class="form-control form-control-lg" id="promptTitle" required 
+                               placeholder="프롬프트의 제목을 입력하세요">
+                    </div>
+
+                    <div class="mb-4">
+                        <h5 class="mb-3">
+                            <i class="fas fa-edit text-primary me-2"></i>내용 입력
+                        </h5>
+                        
+                        {% for section in template.sections|sort(attribute='order_index') %}
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <div class="mb-2">
+                                    <label class="form-label fw-bold text-primary">
+                                        {{ '#' * section.level }} {{ section.title }}
+                                    </label>
+                                </div>
+                                <textarea class="form-control section-content" 
+                                          data-section-id="{{ section.id }}"
+                                          rows="4"
+                                          placeholder="{% if section.content %}{{ section.content }}{% else %}이 섹션의 내용을 입력하세요{% endif %}">{% if section.content %}{{ section.content }}{% endif %}</textarea>
+                                {% if section.content %}
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>위 내용은 템플릿의 기본값입니다. 수정하거나 추가할 수 있습니다.
+                                </small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="/prompts/create" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>템플릿 선택으로
+                        </a>
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-check me-2"></i>프롬프트 생성
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 미리보기 카드 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-eye text-info me-2"></i>실시간 미리보기
+                </h6>
+            </div>
+            <div class="card-body">
+                <pre id="previewContent" class="bg-light p-3 rounded"><code>프롬프트 내용을 입력하면 여기에 미리보기가 표시됩니다...</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const templateId = {{ template.id }};
+const templateSections = [
+    {% for section in template.sections|sort(attribute='order_index') %}
+    {
+        id: {{ section.id }},
+        level: {{ section.level }},
+        title: "{{ section.title }}",
+        order_index: {{ section.order_index }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+function updatePreview() {
+    const promptTitle = document.getElementById('promptTitle').value.trim();
+    const sectionContents = document.querySelectorAll('.section-content');
+    
+    let markdown = '';
+    
+    templateSections.forEach(section => {
+        const contentElement = document.querySelector(`[data-section-id="${section.id}"]`);
+        const content = contentElement ? contentElement.value.trim() : '';
+        
+        const header = '#'.repeat(section.level);
+        markdown += `${header} ${section.title}\n`;
+        
+        if (content) {
+            markdown += `${content}\n\n`;
+        } else {
+            markdown += '\n';
+        }
+    });
+    
+    document.getElementById('previewContent').textContent = markdown || '프롬프트 내용을 입력하면 여기에 미리보기가 표시됩니다...';
+}
+
+// 실시간 미리보기 업데이트
+document.getElementById('promptTitle').addEventListener('input', updatePreview);
+document.querySelectorAll('.section-content').forEach(textarea => {
+    textarea.addEventListener('input', updatePreview);
+});
+
+// 폼 제출 처리
+document.getElementById('promptForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const promptTitle = document.getElementById('promptTitle').value.trim();
+    
+    if (!promptTitle) {
+        alert('프롬프트 제목을 입력해주세요.');
+        return;
+    }
+    
+    // 섹션 내용 수집
+    const contents = [];
+    document.querySelectorAll('.section-content').forEach(textarea => {
+        const sectionId = parseInt(textarea.dataset.sectionId);
+        const content = textarea.value.trim();
+        
+        contents.push({
+            section_id: sectionId,
+            content: content || ''
+        });
+    });
+    
+    const promptData = {
+        template_id: templateId,
+        title: promptTitle,
+        contents: contents
+    };
+    
+    try {
+        const response = await fetch('/api/prompts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(promptData)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            alert('프롬프트가 성공적으로 생성되었습니다!');
+            window.location.href = `/prompts/${result.id}`;
+        } else {
+            const error = await response.json();
+            alert('프롬프트 생성에 실패했습니다: ' + error.detail);
+        }
+    } catch (error) {
+        alert('오류가 발생했습니다: ' + error.message);
+    }
+});
+
+// 초기 미리보기 업데이트
+updatePreview();
+</script>
+{% endblock %} 

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}AI 응답: {{ prompt.title }} - 프롬프트 템플릿 생성 서비스{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="mb-0">
+                            <i class="fas fa-robot me-2"></i>Gemini AI 응답
+                        </h4>
+                        <small>프롬프트: {{ prompt.title }}</small>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-light btn-sm" onclick="copyResponse()" title="응답 복사">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <a href="/prompts/{{ prompt.id }}" class="btn btn-outline-light btn-sm" title="프롬프트 보기">
+                            <i class="fas fa-file-text"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- 응답 상태 -->
+                <div class="alert alert-success mb-4">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <div>
+                            <strong>응답 완료</strong>
+                            <br>
+                            <small class="text-muted">
+                                {{ gemini_response.created_at.strftime('%Y년 %m월 %d일 %H:%M') }} 요청 
+                                → {{ gemini_response.completed_at.strftime('%H:%M') }} 완료
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gemini 응답 내용 -->
+                <div class="mb-4">
+                    <h6 class="text-muted mb-3">
+                        <i class="fas fa-brain me-1"></i>Gemini AI 응답
+                    </h6>
+                    <div class="position-relative">
+                        <div id="geminiResponse" class="border rounded p-4" style="background-color: #f8f9fa; white-space: pre-wrap; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6;">{{ gemini_response.response_content }}</div>
+                        <button class="btn btn-outline-secondary btn-sm position-absolute" 
+                                style="top: 10px; right: 10px;" 
+                                onclick="copyResponse()" 
+                                title="응답 복사">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 원본 프롬프트 (접을 수 있음) -->
+                <div class="card bg-light">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <button class="btn btn-link text-decoration-none p-0" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#originalPrompt">
+                                <i class="fas fa-chevron-down me-1"></i>원본 프롬프트 보기
+                            </button>
+                        </h6>
+                    </div>
+                    <div id="originalPrompt" class="collapse">
+                        <div class="card-body">
+                            <pre class="mb-0" style="white-space: pre-wrap;">{{ prompt.generated_content }}</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent">
+                <div class="d-flex justify-content-between">
+                    <div class="btn-group">
+                        <a href="/prompts" class="btn btn-secondary">
+                            <i class="fas fa-list me-2"></i>생성 내역
+                        </a>
+                        <a href="/prompts/{{ prompt.id }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-file-text me-2"></i>프롬프트 보기
+                        </a>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-info" onclick="copyResponse()">
+                            <i class="fas fa-copy me-2"></i>응답 복사
+                        </button>
+                        <button class="btn btn-success" onclick="copyBoth()">
+                            <i class="fas fa-clone me-2"></i>프롬프트+응답 복사
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 복사 완료 토스트 -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="copyToast" class="toast" role="alert">
+        <div class="toast-header">
+            <i class="fas fa-check-circle text-success me-2"></i>
+            <strong class="me-auto">복사 완료</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body" id="toastMessage">
+            내용이 클립보드에 복사되었습니다!
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function copyText(text, message) {
+    try {
+        await navigator.clipboard.writeText(text);
+        showToast(message);
+    } catch (err) {
+        // 폴백 방법
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        
+        try {
+            document.execCommand('copy');
+            showToast(message);
+        } catch (err) {
+            alert('복사에 실패했습니다. 수동으로 복사해주세요.');
+        }
+        
+        document.body.removeChild(textarea);
+    }
+}
+
+function showToast(message) {
+    document.getElementById('toastMessage').textContent = message;
+    const toast = new bootstrap.Toast(document.getElementById('copyToast'));
+    toast.show();
+}
+
+function copyResponse() {
+    const content = document.getElementById('geminiResponse').textContent;
+    copyText(content, 'Gemini 응답이 클립보드에 복사되었습니다!');
+}
+
+function copyBoth() {
+    const prompt = `{{ prompt.generated_content }}`.replace(/\n/g, '\n');
+    const response = document.getElementById('geminiResponse').textContent;
+    
+    const combined = `=== 프롬프트 ===\n${prompt}\n\n=== Gemini 응답 ===\n${response}`;
+    copyText(combined, '프롬프트와 응답이 모두 복사되었습니다!');
+}
+</script>
+{% endblock %} 
